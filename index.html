@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pixel Victory Road</title>
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let width = window.innerWidth;
+let height = window.innerHeight;
+canvas.width = width;
+canvas.height = height;
+
+window.addEventListener('resize', () => {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+});
+
+const keys = {};
+document.addEventListener('keydown', e => keys[e.key] = true);
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+const tileSize = 40;
+const cols = Math.floor(width / tileSize);
+const rows = Math.floor(height / tileSize);
+
+let scrollY = 0;
+let finished = false;
+let winner = "";
+
+function makeTrackRow() {
+  const row = new Array(cols).fill(1);
+  for (let i = 0; i < Math.floor(Math.random() * 3); i++) {
+    row[Math.floor(Math.random() * cols)] = 0; // hole
+  }
+  return row;
+}
+
+let track = [];
+for (let i = 0; i < rows + 10; i++) {
+  track.push(makeTrackRow());
+}
+
+function createCar(color, x) {
+  return {
+    x: x * tileSize + tileSize / 4,
+    y: height - tileSize * 2,
+    vx: 0,
+    vy: 0,
+    color,
+    w: tileSize / 2,
+    h: tileSize / 2,
+    update(up, down, left, right) {
+      const speed = 4;
+      if (keys[up]) this.vy = -speed;
+      if (keys[down]) this.vy = speed;
+      if (keys[left]) this.vx = -speed;
+      if (keys[right]) this.vx = speed;
+
+      this.x += this.vx;
+      this.y += this.vy;
+
+      // keep inside screen
+      this.x = Math.max(0, Math.min(width - this.w, this.x));
+      this.y = Math.max(0, Math.min(height - this.h, this.y));
+
+      this.vx *= 0.8;
+      this.vy *= 0.8;
+
+      // win check
+      if (this.y <= tileSize && !finished) {
+        finished = true;
+        winner = this.color.toUpperCase() + " WINS!";
+      }
+    },
+    draw() {
+      ctx.fillStyle = this.color;
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
+const redCar = createCar("red", 5);
+const blueCar = createCar("blue", cols - 6);
+
+function drawTrack() {
+  scrollY += 2;
+
+  if (scrollY >= tileSize) {
+    scrollY = 0;
+    track.shift();
+    track.push(makeTrackRow());
+  }
+
+  for (let y = 0; y < rows + 1; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (track[y][x] === 1) {
+        ctx.fillStyle = "#444";
+        ctx.fillRect(x * tileSize, y * tileSize - scrollY, tileSize, tileSize);
+      }
+    }
+  }
+}
+
+function checkFalling(car) {
+  const col = Math.floor(car.x / tileSize);
+  const row = Math.floor((car.y + scrollY) / tileSize);
+  if (track[row] && track[row][col] === 0) {
+    finished = true;
+    winner = (car.color === "red" ? "BLUE" : "RED") + " WINS (Opponent Fell)!";
+  }
+}
+
+function loop() {
+  ctx.clearRect(0, 0, width, height);
+  drawTrack();
+
+  if (!finished) {
+    redCar.update("w", "s", "a", "d");
+    blueCar.update("ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight");
+
+    checkFalling(redCar);
+    checkFalling(blueCar);
+  }
+
+  redCar.draw();
+  blueCar.draw();
+
+  if (finished) {
+    ctx.fillStyle = "white";
+    ctx.font = "48px monospace";
+    ctx.fillText(winner, width / 2 - 200, height / 2);
+    ctx.font = "24px monospace";
+    ctx.fillText("Reload the page to play again", width / 2 - 150, height / 2 + 40);
+  }
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
